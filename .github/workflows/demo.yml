@@ -1,0 +1,14 @@
+name: Do Nothing on Main Branch Push
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  do-nothing:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Do Nothing
+      run: echo "Doing nothing on main branch push"
