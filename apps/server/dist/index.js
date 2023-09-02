@@ -45,6 +45,7 @@ var cors_1 = __importDefault(require("cors"));
 var body_parser_1 = __importDefault(require("body-parser"));
 var twilio_1 = __importDefault(require("twilio"));
 var axios_1 = __importDefault(require("axios"));
+// import { replyRequestType } from "zodTypes";
 dotenv_1["default"].config();
 var app = (0, express_1["default"])();
 var _a = process.env, PORT = _a.PORT, TWILIO_ACCOUNT_SID = _a.TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN = _a.TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER = _a.TWILIO_PHONE_NUMBER, BASEURL = _a.BASEURL;
@@ -96,13 +97,11 @@ app.post('/reply', function (req, res) { return __awaiter(void 0, void 0, void 0
             case 1:
                 response = _b.sent();
                 console.log("Message sent with SID: ".concat(response.sid));
-                res.status(200).json({ message: 'Message sent successfully' });
-                return [3 /*break*/, 3];
+                return [2 /*return*/, res.status(200).json({ message: 'Message sent successfully' })];
             case 2:
                 error_1 = _b.sent();
                 console.error('Error sending message:', error_1);
-                res.status(500).json({ error: 'Failed to send message' });
-                return [3 /*break*/, 3];
+                return [2 /*return*/, res.status(500).json({ error: 'Failed to send message' })];
             case 3: return [2 /*return*/];
         }
     });

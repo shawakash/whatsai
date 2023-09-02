@@ -4,6 +4,7 @@ import cors from "cors";
 import bodyParser from 'body-parser';
 import twilio from 'twilio';
 import axios from 'axios';
+// import { replyRequestType } from "zodTypes";
 
 
 dotenv.config();
@@ -55,6 +56,13 @@ app.post('/reply', async (req, res) => {
 
     try {
         const client = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
+
+        // const parsedInput = replyRequestType.safeParse(req.body);
+        // if(!parsedInput.success) {
+        //     console.log('Validation Error');
+        //     return res.status(400).json({ message: 'Validation Error' })
+        // }
+        
         const { to, message } = req.body;
 
 
@@ -66,10 +74,10 @@ app.post('/reply', async (req, res) => {
         });
 
         console.log(`Message sent with SID: ${response.sid}`);
-        res.status(200).json({ message: 'Message sent successfully' });
+        return res.status(200).json({ message: 'Message sent successfully' });
     } catch (error) {
         console.error('Error sending message:', error);
-        res.status(500).json({ error: 'Failed to send message' });
+        return res.status(500).json({ error: 'Failed to send message' });
     }
 
 });
