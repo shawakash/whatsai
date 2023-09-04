@@ -4,10 +4,12 @@ import cors from "cors";
 import bodyParser from 'body-parser';
 import twilio from 'twilio';
 import axios from 'axios';
-// import { replyRequestType } from "zodTypes";
-
+import { PrismaClient } from 'database';
+import { replyMessage } from 'types';
 
 dotenv.config();
+
+const client = new PrismaClient()
 
 const app = express();
 
@@ -57,13 +59,13 @@ app.post('/reply', async (req, res) => {
     try {
         const client = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
 
-        // const parsedInput = replyRequestType.safeParse(req.body);
-        // if(!parsedInput.success) {
-        //     console.log('Validation Error');
-        //     return res.status(400).json({ message: 'Validation Error' })
-        // }
+        const parsedInput = replyMessage.safeParse(req.body);
+        if(!parsedInput.success) {
+            console.log('Validation Error');
+            return res.status(400).json({ message: 'Validation Error' })
+        }
         
-        const { to, message } = req.body;
+        const { to, message } = parsedInput.data;
 
 
         // Use the Twilio client to send a message
