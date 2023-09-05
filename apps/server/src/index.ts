@@ -53,30 +53,40 @@ app.use(cors());
 app.post('/query', async (req, res) => {
     console.log('\n\n', req.body, '\n\n');
 
-        // api = new ChatGPTAPI({
-        //     apiKey: OPENAI_API_KEY,
-        // });
-        // console.log(api)
-        // const prompt = await api.sendMessage(req.body.Body);
-        // console.log(prompt.text);
+    // api = new ChatGPTAPI({
+    //     apiKey: OPENAI_API_KEY,
+    // });
+    // console.log(api)
+    // const prompt = await api.sendMessage(req.body.Body);
+    // console.log(prompt.text);
 
 
-        const response = await axios({
-            baseURL: BASEURL,
-            url: '/reply',
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            data: {
-                to: req.body.From,
-                message: req.body.Body
-            }
-        });
 
-        return res.status(200).json(req.body);
-    }
+
+    const response = await axios({
+        baseURL: BASEURL,
+        url: '/reply',
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        data: {
+            to: req.body.From,
+            message: req.body.Body
+        }
+    });
+
+    return res.status(200).json(req.body);
+}
 );
+
+function splitMessage(text: string, chunkSize: number) {
+    const chunks = [];
+    for (let i = 0; i < text.length; i += chunkSize) {
+      chunks.push(text.slice(i, i + chunkSize));
+    }
+    return chunks;
+  }
 
 app.get('/', (req, res) => {
     return res.status(200).json({ message: 'Hello from server' });
@@ -108,18 +118,42 @@ app.post('/reply', async (req, res) => {
         // });
         // console.log(prompt.data.reply)
 
+        const prompt = await axios({
+            method: 'POST',
+            baseURL: 'https://api.openai.com/v1/chat/completions',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${OPENAI_API_KEY}`
+            },
+            data: {
+                model: "gpt-3.5-turbo",
+                messages: [{ "role": "user", "content": message }],
+                temperature: 0.7
+            }
+        });
+        console.log(prompt.data.choices[0].message.content)
+        console.log(typeof prompt.data.choices);
+
 
         // const prompt = await api.sendMessage(message);
         // console.log(prompt);
 
         // Use the Twilio client to send a message
-        const response = await client.messages.create({
-            body: message,
-            from: `whatsapp:${TWILIO_PHONE_NUMBER}`,
-            to: to,
-        });
+        const responseContent = prompt.data.choices[0].message.content;
 
-        console.log(`Message sent with SID: ${response.sid}`);
+        // Split the response into smaller chunks
+        const responseChunks = splitMessage(responseContent, 1599); // Adjust chunkSize as needed
+
+        // Send each chunk as a separate WhatsApp message
+        for (const chunk of responseChunks) {
+            const response = await client.messages.create({
+                body: chunk,
+                from: `whatsapp:${TWILIO_PHONE_NUMBER}`,
+                to: to,
+            });
+            console.log(`Message sent with SID: ${response.sid}`);
+        }
+
         return res.status(200).json({ message: 'Message sent successfully' });
     } catch (error) {
         console.error('Error sending message:', error);
