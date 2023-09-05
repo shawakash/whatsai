@@ -1,4 +1,3 @@
-"use strict";
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -35,33 +34,37 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
         if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
     }
 };
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-var express_1 = __importDefault(require("express"));
-var dotenv_1 = __importDefault(require("dotenv"));
-var cors_1 = __importDefault(require("cors"));
-var body_parser_1 = __importDefault(require("body-parser"));
-var twilio_1 = __importDefault(require("twilio"));
-var axios_1 = __importDefault(require("axios"));
-var database_1 = require("database");
-dotenv_1.default.config();
-var client = new database_1.PrismaClient();
-var app = (0, express_1.default)();
-var _a = process.env, PORT = _a.PORT, TWILIO_ACCOUNT_SID = _a.TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN = _a.TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER = _a.TWILIO_PHONE_NUMBER, BASEURL = _a.BASEURL;
-app.use(body_parser_1.default.urlencoded({
+import express from 'express';
+import dotenv from "dotenv";
+import cors from "cors";
+import bodyParser from 'body-parser';
+import twilio from 'twilio';
+import axios from 'axios';
+import { PrismaClient } from 'database';
+import { replyMessage } from 'types';
+import { ChatGPTAPI } from 'chatgpt';
+dotenv.config();
+var client = new PrismaClient();
+var app = express();
+var _a = process.env, PORT = _a.PORT, TWILIO_ACCOUNT_SID = _a.TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN = _a.TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER = _a.TWILIO_PHONE_NUMBER, BASEURL = _a.BASEURL, OPENAI_API_KEY = _a.OPENAI_API_KEY;
+if (!OPENAI_API_KEY) {
+    throw new Error("Add the enviorment variable");
+}
+var api = new ChatGPTAPI({
+    apiKey: OPENAI_API_KEY
+});
+app.use(bodyParser.urlencoded({
     extended: true
 }));
-app.use(body_parser_1.default.json());
-app.use((0, cors_1.default)());
+app.use(bodyParser.json());
+app.use(cors());
 app.post('/query', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
     var response;
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
                 console.log('\n\n', req.body, '\n\n');
-                return [4 /*yield*/, (0, axios_1.default)({
+                return [4 /*yield*/, axios({
                         baseURL: BASEURL,
                         url: '/reply',
                         method: 'POST',
@@ -83,27 +86,36 @@ app.get('/', function (req, res) {
     return res.status(200).json({ message: 'Hello from server' });
 });
 app.post('/reply', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
-    var client_1, _a, to, message, response, error_1;
+    var client_1, parsedInput, _a, to, message, prompt, response, error_1;
     return __generator(this, function (_b) {
         switch (_b.label) {
             case 0:
-                _b.trys.push([0, 2, , 3]);
-                client_1 = (0, twilio_1.default)(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
-                _a = req.body, to = _a.to, message = _a.message;
+                _b.trys.push([0, 3, , 4]);
+                client_1 = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
+                parsedInput = replyMessage.safeParse(req.body);
+                if (!parsedInput.success) {
+                    console.log('Validation Error');
+                    return [2 /*return*/, res.status(400).json({ message: 'Validation Error' })];
+                }
+                _a = parsedInput.data, to = _a.to, message = _a.message;
+                return [4 /*yield*/, api.sendMessage(message)];
+            case 1:
+                prompt = _b.sent();
+                console.log(prompt);
                 return [4 /*yield*/, client_1.messages.create({
-                        body: message,
+                        body: prompt.text,
                         from: "whatsapp:".concat(TWILIO_PHONE_NUMBER),
                         to: to,
                     })];
-            case 1:
+            case 2:
                 response = _b.sent();
                 console.log("Message sent with SID: ".concat(response.sid));
                 return [2 /*return*/, res.status(200).json({ message: 'Message sent successfully' })];
-            case 2:
+            case 3:
                 error_1 = _b.sent();
                 console.error('Error sending message:', error_1);
                 return [2 /*return*/, res.status(500).json({ error: 'Failed to send message' })];
-            case 3: return [2 /*return*/];
+            case 4: return [2 /*return*/];
         }
     });
 }); });

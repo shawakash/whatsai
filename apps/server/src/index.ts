@@ -6,10 +6,21 @@ import twilio from 'twilio';
 import axios from 'axios';
 import { PrismaClient } from 'database';
 import { replyMessage } from 'types';
+import { ChatGPTAPI } from 'chatgpt';
+// let ChatGPTAPI: any;
+// async () => {
+//     try {
+//         const module = await import('chatgpt');
+//         ChatGPTAPI = module.ChatGPTAPI;
+//     } catch (error) {
+//         console.error('Error importing chatgpt:', error);
+//     }
+// }
 
 dotenv.config();
 
-const client = new PrismaClient()
+const client = new PrismaClient();
+
 
 const app = express();
 
@@ -18,8 +29,21 @@ const {
     TWILIO_ACCOUNT_SID,
     TWILIO_AUTH_TOKEN,
     TWILIO_PHONE_NUMBER,
-    BASEURL
+    BASEURL,
+    OPENAI_API_KEY
 } = process.env;
+
+if (!OPENAI_API_KEY) {
+    throw new Error("Add the enviorment variable");
+}
+
+
+
+console.log(ChatGPTAPI)
+const api = new ChatGPTAPI({
+    apiKey: OPENAI_API_KEY
+});
+
 
 app.use(bodyParser.urlencoded({
     extended: true
@@ -30,6 +54,8 @@ app.use(cors());
 
 app.post('/query', async (req, res) => {
     console.log('\n\n', req.body, '\n\n');
+
+
 
     const response = await axios({
         baseURL: BASEURL,
@@ -60,17 +86,21 @@ app.post('/reply', async (req, res) => {
         const client = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
 
         const parsedInput = replyMessage.safeParse(req.body);
-        if(!parsedInput.success) {
+        if (!parsedInput.success) {
             console.log('Validation Error');
             return res.status(400).json({ message: 'Validation Error' })
         }
-        
+
         const { to, message } = parsedInput.data;
 
 
+
+        const prompt = await api.sendMessage(message);
+        console.log(prompt);
+
         // Use the Twilio client to send a message
         const response = await client.messages.create({
-            body: message,
+            body: prompt.text,
             from: `whatsapp:${TWILIO_PHONE_NUMBER}`,
             to: to,
         });

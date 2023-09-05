@@ -1,11 +1,15 @@
 {
   "compilerOptions": {
     "lib": ["ES2016"],
-    "module": "CommonJS",
+    "module": "ESNext",
+    "moduleResolution": "Node",
     "outDir": "./dist",
     "rootDir": "./src",
     "strict": true,
     "forceConsistentCasingInFileNames": true
+  },
+  "ts-node": {
+    "esm": true
   },
   "exclude": ["node_modules"],
   "extends": "tsconfig/base.json",
