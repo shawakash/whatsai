@@ -42,7 +42,9 @@ import twilio from 'twilio';
 import axios from 'axios';
 import { PrismaClient } from 'database';
 import { replyMessage } from 'types';
+import OpenAI from 'openai';
 import { ChatGPTAPI } from 'chatgpt';
+// import { ChatGPTAPIOptions, ChatGPTAPI } from 'chatgpt';
 dotenv.config();
 var client = new PrismaClient();
 var app = express();
@@ -50,8 +52,10 @@ var _a = process.env, PORT = _a.PORT, TWILIO_ACCOUNT_SID = _a.TWILIO_ACCOUNT_SID
 if (!OPENAI_API_KEY) {
     throw new Error("Add the enviorment variable");
 }
-var api = new ChatGPTAPI({
-    apiKey: OPENAI_API_KEY
+var api;
+// Ensure that the 'chatgpt' module is imported correctly
+var openai = new OpenAI({
+    apiKey: OPENAI_API_KEY, // defaults to process.env["OPENAI_API_KEY"]
 });
 app.use(bodyParser.urlencoded({
     extended: true
@@ -59,11 +63,19 @@ app.use(bodyParser.urlencoded({
 app.use(bodyParser.json());
 app.use(cors());
 app.post('/query', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
-    var response;
+    var prompt, response;
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
                 console.log('\n\n', req.body, '\n\n');
+                api = new ChatGPTAPI({
+                    apiKey: OPENAI_API_KEY,
+                });
+                console.log(api);
+                return [4 /*yield*/, api.sendMessage(req.body.Body)];
+            case 1:
+                prompt = _a.sent();
+                console.log(prompt.text);
                 return [4 /*yield*/, axios({
                         baseURL: BASEURL,
                         url: '/reply',
@@ -73,10 +85,10 @@ app.post('/query', function (req, res) { return __awaiter(void 0, void 0, void 0
                         },
                         data: {
                             to: req.body.From,
-                            message: 'Hows going'
+                            message: prompt.text
                         }
                     })];
-            case 1:
+            case 2:
                 response = _a.sent();
                 return [2 /*return*/, res.status(200).json(req.body)];
         }
@@ -86,11 +98,11 @@ app.get('/', function (req, res) {
     return res.status(200).json({ message: 'Hello from server' });
 });
 app.post('/reply', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
-    var client_1, parsedInput, _a, to, message, prompt, response, error_1;
+    var client_1, parsedInput, _a, to, message, response, error_1;
     return __generator(this, function (_b) {
         switch (_b.label) {
             case 0:
-                _b.trys.push([0, 3, , 4]);
+                _b.trys.push([0, 2, , 3]);
                 client_1 = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
                 parsedInput = replyMessage.safeParse(req.body);
                 if (!parsedInput.success) {
@@ -98,24 +110,35 @@ app.post('/reply', function (req, res) { return __awaiter(void 0, void 0, void 0
                     return [2 /*return*/, res.status(400).json({ message: 'Validation Error' })];
                 }
                 _a = parsedInput.data, to = _a.to, message = _a.message;
-                return [4 /*yield*/, api.sendMessage(message)];
-            case 1:
-                prompt = _b.sent();
-                console.log(prompt);
                 return [4 /*yield*/, client_1.messages.create({
-                        body: prompt.text,
+                        body: message,
                         from: "whatsapp:".concat(TWILIO_PHONE_NUMBER),
                         to: to,
                     })];
-            case 2:
+            case 1:
                 response = _b.sent();
                 console.log("Message sent with SID: ".concat(response.sid));
                 return [2 /*return*/, res.status(200).json({ message: 'Message sent successfully' })];
-            case 3:
+            case 2:
                 error_1 = _b.sent();
                 console.error('Error sending message:', error_1);
                 return [2 /*return*/, res.status(500).json({ error: 'Failed to send message' })];
-            case 4: return [2 /*return*/];
+            case 3: return [2 /*return*/];
+        }
+    });
+}); });
+app.get('/chat-begin', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
+    var completion;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0: return [4 /*yield*/, openai.chat.completions.create({
+                    messages: [{ role: 'user', content: 'Say this is a test' }],
+                    model: 'gpt-3.5-turbo',
+                })];
+            case 1:
+                completion = _a.sent();
+                console.log(completion.choices);
+                return [2 /*return*/];
         }
     });
 }); });
