@@ -3,7 +3,7 @@ import dotenv from "dotenv";
 import cors from "cors";
 import bodyParser from 'body-parser';
 import twilio from 'twilio';
-import axios from 'axios';
+import axios, { AxiosResponse } from 'axios';
 import { PrismaClient } from 'database';
 import { replyMessage } from 'types';
 import OpenAI from 'openai';
@@ -91,6 +91,7 @@ function splitMessage(text: string, chunkSize: number) {
 app.get('/', (req, res) => {
     return res.status(200).json({ message: 'Hello from server' });
 });
+let conversationId = '';
 
 app.post('/reply', async (req, res) => {
 
@@ -117,20 +118,42 @@ app.post('/reply', async (req, res) => {
         //     }
         // });
         // console.log(prompt.data.reply)
+        let conversationId = 'chatcmpl-7vU9u5ccDSTrku0nw8ukXzklqn8Fp';
+        let prompt: AxiosResponse;
+        if(conversationId.length == 0) {
+            prompt = await axios({
+                method: 'POST',
+                baseURL: 'https://api.openai.com/v1/chat/completions',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${OPENAI_API_KEY}`
+                },
+                data: {
+                    model: "gpt-3.5-turbo",
+                    messages: [{ "role": "user", "content": message }],
+                    temperature: 0.7,
+                }
+            });
+            conversationId = prompt.data.id;
+            console.log(conversationId)
+        } else {
 
-        const prompt = await axios({
-            method: 'POST',
-            baseURL: 'https://api.openai.com/v1/chat/completions',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${OPENAI_API_KEY}`
-            },
-            data: {
-                model: "gpt-3.5-turbo",
-                messages: [{ "role": "user", "content": message }],
-                temperature: 0.7
-            }
-        });
+            prompt = await axios({
+                method: 'POST',
+                baseURL: 'https://api.openai.com/v1/chat/completions',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${OPENAI_API_KEY}`
+                },
+                data: {
+                    model: "gpt-3.5-turbo",
+                    messages: [{ "role": "user", "content": message }],
+                    temperature: 0.7,
+                    conversation_id: conversationId
+                }
+            });
+        }
+
         console.log(prompt.data.choices[0].message.content)
         console.log(typeof prompt.data.choices);
 
