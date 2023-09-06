@@ -11,6 +11,26 @@ datasource db {
 }
 
 model Message {
-  from String
   id   Int    @id @default(autoincrement())
+  from String
+  SmsMessageSid String
+  MessageSid String
+  messages Messages @relation(fields: [messagesId], references: [id])
+  messagesId Int
+}
+
+model Messages {
+  id Int @id @default(autoincrement())
+  messagesId Message[]
+  user User @relation(fields: [userId], references: [id])
+  userId Int
+}
+
+model User {
+  id          Int    @id @default(autoincrement())
+  ProfileName String
+  WaId String @unique
+  Number BigInt @unique 
+  AccountSid String @unique
+  prevMessages Messages[]
 }

@@ -46,13 +46,16 @@ import OpenAI from 'openai';
 import { ChatGPTAPI } from 'chatgpt';
 // import { ChatGPTAPIOptions, ChatGPTAPI } from 'chatgpt';
 dotenv.config();
-var client = new PrismaClient();
+var dbClient = new PrismaClient();
 var app = express();
 var _a = process.env, PORT = _a.PORT, TWILIO_ACCOUNT_SID = _a.TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN = _a.TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER = _a.TWILIO_PHONE_NUMBER, BASEURL = _a.BASEURL, OPENAI_API_KEY = _a.OPENAI_API_KEY;
 if (!OPENAI_API_KEY) {
     throw new Error("Add the enviorment variable");
 }
 var api;
+api = new ChatGPTAPI({
+    apiKey: OPENAI_API_KEY
+});
 // Ensure that the 'chatgpt' module is imported correctly
 var openai = new OpenAI({
     apiKey: OPENAI_API_KEY, // defaults to process.env["OPENAI_API_KEY"]
@@ -63,18 +66,41 @@ app.use(bodyParser.urlencoded({
 app.use(bodyParser.json());
 app.use(cors());
 app.post('/query', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
-    var prompt, response;
-    return __generator(this, function (_a) {
-        switch (_a.label) {
+    var _a, ProfileName, WaId, From, AccountSid, from, isUser, user, prompt, response, error_1;
+    return __generator(this, function (_b) {
+        switch (_b.label) {
             case 0:
+                _b.trys.push([0, 6, , 7]);
                 console.log('\n\n', req.body, '\n\n');
-                api = new ChatGPTAPI({
-                    apiKey: OPENAI_API_KEY,
-                });
+                _a = req.body, ProfileName = _a.ProfileName, WaId = _a.WaId, From = _a.From, AccountSid = _a.AccountSid;
+                from = parseInt(From.split('+')[1]);
+                return [4 /*yield*/, dbClient.user.findUnique({
+                        where: {
+                            Number: from
+                        }
+                    })];
+            case 1:
+                isUser = _b.sent();
+                if (!!isUser) return [3 /*break*/, 3];
+                return [4 /*yield*/, dbClient.user.create({
+                        data: {
+                            ProfileName: ProfileName,
+                            WaId: WaId,
+                            Number: from,
+                            AccountSid: AccountSid
+                        }
+                    })];
+            case 2:
+                user = _b.sent();
+                _b.label = 3;
+            case 3:
+                // api = new ChatGPTAPI({
+                //     apiKey: OPENAI_API_KEY,
+                // });
                 console.log(api);
                 return [4 /*yield*/, api.sendMessage(req.body.Body)];
-            case 1:
-                prompt = _a.sent();
+            case 4:
+                prompt = _b.sent();
                 console.log(prompt.text);
                 return [4 /*yield*/, axios({
                         baseURL: BASEURL,
@@ -84,46 +110,88 @@ app.post('/query', function (req, res) { return __awaiter(void 0, void 0, void 0
                             'Content-Type': 'application/json'
                         },
                         data: {
-                            to: req.body.From,
-                            message: prompt.text
+                            to: "whatsapp:+".concat(isUser === null || isUser === void 0 ? void 0 : isUser.Number),
+                            message: req.body.Body
                         }
                     })];
-            case 2:
-                response = _a.sent();
+            case 5:
+                response = _b.sent();
                 return [2 /*return*/, res.status(200).json(req.body)];
+            case 6:
+                error_1 = _b.sent();
+                console.log(error_1);
+                return [2 /*return*/, res.status(500).json({ message: 'Internal Error', error: error_1 })];
+            case 7: return [2 /*return*/];
         }
     });
 }); });
+function splitMessage(text, chunkSize) {
+    var chunks = [];
+    for (var i = 0; i < text.length; i += chunkSize) {
+        chunks.push(text.slice(i, i + chunkSize));
+    }
+    return chunks;
+}
 app.get('/', function (req, res) {
     return res.status(200).json({ message: 'Hello from server' });
 });
 app.post('/reply', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
-    var client_1, parsedInput, _a, to, message, response, error_1;
+    var client, parsedInput, _a, to, message, prompt, responseContent, responseChunks, _i, responseChunks_1, chunk, response, error_2;
     return __generator(this, function (_b) {
         switch (_b.label) {
             case 0:
-                _b.trys.push([0, 2, , 3]);
-                client_1 = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
+                _b.trys.push([0, 6, , 7]);
+                client = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
                 parsedInput = replyMessage.safeParse(req.body);
                 if (!parsedInput.success) {
                     console.log('Validation Error');
                     return [2 /*return*/, res.status(400).json({ message: 'Validation Error' })];
                 }
                 _a = parsedInput.data, to = _a.to, message = _a.message;
-                return [4 /*yield*/, client_1.messages.create({
-                        body: message,
+                return [4 /*yield*/, axios({
+                        method: 'POST',
+                        baseURL: 'https://api.openai.com/v1/chat/completions',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': "Bearer ".concat(OPENAI_API_KEY)
+                        },
+                        data: {
+                            model: "gpt-3.5-turbo",
+                            messages: [{ "role": "user", "content": message }],
+                            temperature: 0.7,
+                        }
+                    })];
+            case 1:
+                prompt = _b.sent();
+                console.log('\n\n', prompt.data, '\n\n');
+                console.log(prompt.data.choices[0].message.content);
+                console.log(typeof prompt.data.choices);
+                responseContent = prompt.data.choices[0].message.content;
+                responseChunks = splitMessage(responseContent, 1599);
+                _i = 0, responseChunks_1 = responseChunks;
+                _b.label = 2;
+            case 2:
+                if (!(_i < responseChunks_1.length)) return [3 /*break*/, 5];
+                chunk = responseChunks_1[_i];
+                return [4 /*yield*/, client.messages.create({
+                        body: chunk,
                         from: "whatsapp:".concat(TWILIO_PHONE_NUMBER),
                         to: to,
                     })];
-            case 1:
+            case 3:
                 response = _b.sent();
                 console.log("Message sent with SID: ".concat(response.sid));
-                return [2 /*return*/, res.status(200).json({ message: 'Message sent successfully' })];
-            case 2:
-                error_1 = _b.sent();
-                console.error('Error sending message:', error_1);
+                console.log('\n\n', response.body, '\n\n');
+                _b.label = 4;
+            case 4:
+                _i++;
+                return [3 /*break*/, 2];
+            case 5: return [2 /*return*/, res.status(200).json({ message: 'Message sent successfully' })];
+            case 6:
+                error_2 = _b.sent();
+                console.error('Error sending message:', error_2);
                 return [2 /*return*/, res.status(500).json({ error: 'Failed to send message' })];
-            case 3: return [2 /*return*/];
+            case 7: return [2 /*return*/];
         }
     });
 }); });

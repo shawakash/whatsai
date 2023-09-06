@@ -13,7 +13,7 @@ import { ChatGPTAPI } from 'chatgpt';
 
 dotenv.config();
 
-const client = new PrismaClient();
+const dbClient = new PrismaClient();
 
 
 const app = express();
@@ -34,6 +34,7 @@ if (!OPENAI_API_KEY) {
 
 let api: any;
 
+
 // Ensure that the 'chatgpt' module is imported correctly
 
 
@@ -51,47 +52,74 @@ app.use(bodyParser.json());
 app.use(cors());
 
 app.post('/query', async (req, res) => {
-    console.log('\n\n', req.body, '\n\n');
+    try {
 
-    // api = new ChatGPTAPI({
-    //     apiKey: OPENAI_API_KEY,
-    // });
-    // console.log(api)
-    // const prompt = await api.sendMessage(req.body.Body);
-    // console.log(prompt.text);
+        console.log('\n\n', req.body, '\n\n');
+
+        const { ProfileName, WaId, From, AccountSid } = req.body;
+        const from = parseInt(From.split('+')[1]);
+
+        const isUser = await dbClient.user.findUnique({
+            where: {
+                Number: from
+            }
+        });
+
+        if (!isUser) {
+            const user = await dbClient.user.create({
+                data: {
+                    ProfileName,
+                    WaId,
+                    Number: from,
+                    AccountSid
+                }
+            });
 
 
-
-
-    const response = await axios({
-        baseURL: BASEURL,
-        url: '/reply',
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        data: {
-            to: req.body.From,
-            message: req.body.Body
         }
-    });
 
-    return res.status(200).json(req.body);
-}
-);
+
+        // api = new ChatGPTAPI({
+        //     apiKey: OPENAI_API_KEY,
+        // });
+        // console.log(api)
+        // const prompt = await api.sendMessage(req.body.Body);
+        // console.log(prompt.text);
+
+
+
+
+        const response = await axios({
+            baseURL: BASEURL,
+            url: '/reply',
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            data: {
+                to: `whatsapp:+${isUser?.Number}`,
+                message: req.body.Body
+            }
+        });
+
+        return res.status(200).json(req.body);
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({ message: 'Internal Error', error })
+    }
+});
 
 function splitMessage(text: string, chunkSize: number) {
     const chunks = [];
     for (let i = 0; i < text.length; i += chunkSize) {
-      chunks.push(text.slice(i, i + chunkSize));
+        chunks.push(text.slice(i, i + chunkSize));
     }
     return chunks;
-  }
+}
 
 app.get('/', (req, res) => {
     return res.status(200).json({ message: 'Hello from server' });
 });
-let conversationId = '';
 
 app.post('/reply', async (req, res) => {
 
@@ -118,41 +146,21 @@ app.post('/reply', async (req, res) => {
         //     }
         // });
         // console.log(prompt.data.reply)
-        let conversationId = 'chatcmpl-7vU9u5ccDSTrku0nw8ukXzklqn8Fp';
-        let prompt: AxiosResponse;
-        if(conversationId.length == 0) {
-            prompt = await axios({
-                method: 'POST',
-                baseURL: 'https://api.openai.com/v1/chat/completions',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${OPENAI_API_KEY}`
-                },
-                data: {
-                    model: "gpt-3.5-turbo",
-                    messages: [{ "role": "user", "content": message }],
-                    temperature: 0.7,
-                }
-            });
-            conversationId = prompt.data.id;
-            console.log(conversationId)
-        } else {
 
-            prompt = await axios({
-                method: 'POST',
-                baseURL: 'https://api.openai.com/v1/chat/completions',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${OPENAI_API_KEY}`
-                },
-                data: {
-                    model: "gpt-3.5-turbo",
-                    messages: [{ "role": "user", "content": message }],
-                    temperature: 0.7,
-                    conversation_id: conversationId
-                }
-            });
-        }
+        const prompt = await axios({
+            method: 'POST',
+            baseURL: 'https://api.openai.com/v1/chat/completions',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${OPENAI_API_KEY}`
+            },
+            data: {
+                model: "gpt-3.5-turbo",
+                messages: [{ "role": "user", "content": message, }],
+                temperature: 0.7,
+            }
+        });
+        console.log('\n\n', prompt.data, '\n\n');
 
         console.log(prompt.data.choices[0].message.content)
         console.log(typeof prompt.data.choices);
@@ -175,6 +183,7 @@ app.post('/reply', async (req, res) => {
                 to: to,
             });
             console.log(`Message sent with SID: ${response.sid}`);
+            console.log('\n\n', response.body, '\n\n')
         }
 
         return res.status(200).json({ message: 'Message sent successfully' });
