@@ -5,7 +5,7 @@ import bodyParser from 'body-parser';
 import twilio from 'twilio';
 import axios, { AxiosResponse } from 'axios';
 import { PrismaClient } from 'database';
-import { replyMessage } from 'types';
+import { replyMessage, role } from 'types';
 import OpenAI from 'openai';
 import { ChatGPTAPI } from 'chatgpt';
 // import { ChatGPTAPIOptions, ChatGPTAPI } from 'chatgpt';
@@ -56,17 +56,17 @@ app.post('/query', async (req, res) => {
 
         console.log('\n\n', req.body, '\n\n');
 
-        const { ProfileName, WaId, From, AccountSid } = req.body;
+        const { ProfileName, WaId, From, AccountSid, SmsMessageSid, MessageSid } = req.body;
         const from = parseInt(From.split('+')[1]);
 
-        const isUser = await dbClient.user.findUnique({
+        let isUser = await dbClient.user.findUnique({
             where: {
                 Number: from
             }
         });
-
+        let prevMessagesId;
         if (!isUser) {
-            const user = await dbClient.user.create({
+            isUser = await dbClient.user.create({
                 data: {
                     ProfileName,
                     WaId,
@@ -75,9 +75,49 @@ app.post('/query', async (req, res) => {
                 }
             });
 
-
         }
 
+        
+
+        const pre = await dbClient.messages.findFirst({
+            where: {
+                userId: isUser?.id
+            },
+            select: {
+                id: true
+            }
+        });
+        
+        if(pre) {
+            prevMessagesId = pre.id
+        }
+        if(!pre) {
+            const messages = await dbClient.messages.create({
+                data: {
+                    user: {
+                        connect: {
+                            id: isUser.id
+                        }
+                    }
+                }
+            });
+
+            prevMessagesId = messages.id;
+        }
+
+        const newMsg = await dbClient.message.create({
+            data: {
+                SmsMessageSid,
+                MessageSid,
+                messages: {
+                    connect: {
+                        id: prevMessagesId
+                    }
+                },
+                body: req.body.Body,
+                role: role.User
+            }
+        });
 
         // api = new ChatGPTAPI({
         //     apiKey: OPENAI_API_KEY,
@@ -85,8 +125,19 @@ app.post('/query', async (req, res) => {
         // console.log(api)
         // const prompt = await api.sendMessage(req.body.Body);
         // console.log(prompt.text);
-
-
+        console.log('\n\n', prevMessagesId, '\n\n')
+        const prompt = await axios({
+            baseURL: BASEURL,
+            url: '/generate',
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            data: {
+                prevMessagesId,
+                message: req.body.Body
+            }
+        });
 
 
         const response = await axios({
@@ -98,7 +149,8 @@ app.post('/query', async (req, res) => {
             },
             data: {
                 to: `whatsapp:+${isUser?.Number}`,
-                message: req.body.Body
+                message: prompt.data.prompt,
+                prevMessagesId
             }
         });
 
@@ -117,6 +169,70 @@ function splitMessage(text: string, chunkSize: number) {
     return chunks;
 }
 
+const generateMessageArray = (prev: ({ messages: { body: string; role: role; }[]; }), message: string) => {
+    const result = prev.messages.map((mess: { body: string; role: role }) => ({
+        content: mess.body,
+        role: mess.role
+    }));
+    result.push({ role: role.User, content: message });
+    return result;
+}
+
+app.post('/generate', async (req, res) => {
+    try {
+
+        const { prevMessagesId, message } = req.body;
+
+        const prevMessages = await dbClient.messages.findUnique({
+            where: {
+                id: prevMessagesId
+            },
+            include: {
+                messages: {
+                    select: {
+                        body: true,
+                        role: true
+                    }
+                }
+            }
+        });
+
+        console.log('\n\n', prevMessages, '\n\n')
+
+        if (prevMessages?.messages) {
+            //@ts-ignore  how to store enum type in prisma
+            const messages = generateMessageArray(prevMessages, message);
+            console.log('\n\n', messages, '\n\n')
+            const prompt = await axios({
+                method: 'POST',
+                baseURL: 'https://api.openai.com/v1/chat/completions',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${OPENAI_API_KEY}`
+                },
+                data: {
+                    model: "gpt-3.5-turbo",
+                    messages: messages,
+                    temperature: 0.7,
+                }
+            });
+
+            console.log(prompt)
+
+           
+
+            return res.status(200).json({ prompt: prompt.data.choices[0].message.content })
+
+        }
+
+
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({ message: 'Internal Error', error });
+    }
+});
+
+
 app.get('/', (req, res) => {
     return res.status(200).json({ message: 'Hello from server' });
 });
@@ -132,7 +248,7 @@ app.post('/reply', async (req, res) => {
             return res.status(400).json({ message: 'Validation Error' })
         }
 
-        const { to, message } = parsedInput.data;
+        const { to, message, prevMessagesId } = parsedInput.data;
 
         // const prompt = await axios({
         //     baseURL: BASEURL,
@@ -147,30 +263,30 @@ app.post('/reply', async (req, res) => {
         // });
         // console.log(prompt.data.reply)
 
-        const prompt = await axios({
-            method: 'POST',
-            baseURL: 'https://api.openai.com/v1/chat/completions',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${OPENAI_API_KEY}`
-            },
-            data: {
-                model: "gpt-3.5-turbo",
-                messages: [{ "role": "user", "content": message, }],
-                temperature: 0.7,
-            }
-        });
-        console.log('\n\n', prompt.data, '\n\n');
+        // const prompt = await axios({
+        //     method: 'POST',
+        //     baseURL: 'https://api.openai.com/v1/chat/completions',
+        //     headers: {
+        //         'Content-Type': 'application/json',
+        //         'Authorization': `Bearer ${OPENAI_API_KEY}`
+        //     },
+        //     data: {
+        //         model: "gpt-3.5-turbo",
+        //         messages: [{ "role": "user", "content": message, }],
+        //         temperature: 0.7,
+        //     }
+        // });
+        // console.log('\n\n', prompt.data, '\n\n');
 
-        console.log(prompt.data.choices[0].message.content)
-        console.log(typeof prompt.data.choices);
+        // console.log(prompt.data.choices[0].message.content)
+        // console.log(typeof prompt.data.choices);
 
 
         // const prompt = await api.sendMessage(message);
         // console.log(prompt);
 
         // Use the Twilio client to send a message
-        const responseContent = prompt.data.choices[0].message.content;
+        const responseContent = message;
 
         // Split the response into smaller chunks
         const responseChunks = splitMessage(responseContent, 1599); // Adjust chunkSize as needed
@@ -183,8 +299,22 @@ app.post('/reply', async (req, res) => {
                 to: to,
             });
             console.log(`Message sent with SID: ${response.sid}`);
-            console.log('\n\n', response.body, '\n\n')
+            console.log('\n\n', response, '\n\n')
+            const newMsg = await dbClient.message.create({
+                data: {
+                    SmsMessageSid: response.sid,
+                    MessageSid: response.sid,
+                    messages: {
+                        connect: {
+                            id: parseInt(prevMessagesId)
+                        }
+                    },
+                    body: chunk,
+                    role: role.Assistant
+                }
+            });
         }
+        
 
         return res.status(200).json({ message: 'Message sent successfully' });
     } catch (error) {

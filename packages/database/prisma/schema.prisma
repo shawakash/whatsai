@@ -10,27 +10,29 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+
 model Message {
-  id   Int    @id @default(autoincrement())
-  from String
+  id            Int      @id @default(autoincrement())
   SmsMessageSid String
-  MessageSid String
-  messages Messages @relation(fields: [messagesId], references: [id])
-  messagesId Int
+  MessageSid    String
+  messages      Messages @relation(fields: [messagesId], references: [id])
+  messagesId    Int
+  body          String
+  role          String
 }
 
 model Messages {
-  id Int @id @default(autoincrement())
-  messagesId Message[]
-  user User @relation(fields: [userId], references: [id])
-  userId Int
+  id       Int       @id @default(autoincrement())
+  messages Message[]
+  user     User      @relation(fields: [userId], references: [id])
+  userId   Int
 }
 
 model User {
-  id          Int    @id @default(autoincrement())
-  ProfileName String
-  WaId String @unique
-  Number BigInt @unique 
-  AccountSid String @unique
+  id           Int        @id @default(autoincrement())
+  ProfileName  String
+  WaId         String     @unique
+  Number       BigInt     @unique
+  AccountSid   String     @unique
   prevMessages Messages[]
 }
