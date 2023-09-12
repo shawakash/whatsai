@@ -1,3 +1,4 @@
+"use strict";
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -34,45 +35,45 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
         if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
     }
 };
-import express from 'express';
-import dotenv from "dotenv";
-import cors from "cors";
-import bodyParser from 'body-parser';
-import twilio from 'twilio';
-import axios from 'axios';
-import { PrismaClient } from 'database';
-import { replyMessage } from 'types';
-import OpenAI from 'openai';
-import { ChatGPTAPI } from 'chatgpt';
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+exports.__esModule = true;
+var express_1 = __importDefault(require("express"));
+var dotenv_1 = __importDefault(require("dotenv"));
+var cors_1 = __importDefault(require("cors"));
+var body_parser_1 = __importDefault(require("body-parser"));
+var twilio_1 = __importDefault(require("twilio"));
+var axios_1 = __importDefault(require("axios"));
+var database_1 = require("database");
+var types_1 = require("types");
+var openai_1 = __importDefault(require("openai"));
 // import { ChatGPTAPIOptions, ChatGPTAPI } from 'chatgpt';
-dotenv.config();
-var dbClient = new PrismaClient();
-var app = express();
+dotenv_1["default"].config();
+var dbClient = new database_1.PrismaClient();
+var app = (0, express_1["default"])();
 var _a = process.env, PORT = _a.PORT, TWILIO_ACCOUNT_SID = _a.TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN = _a.TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER = _a.TWILIO_PHONE_NUMBER, BASEURL = _a.BASEURL, OPENAI_API_KEY = _a.OPENAI_API_KEY;
 if (!OPENAI_API_KEY) {
     throw new Error("Add the enviorment variable");
 }
 var api;
-api = new ChatGPTAPI({
+// Ensure that the 'chatgpt' module is imported correctly
+var openai = new openai_1["default"]({
     apiKey: OPENAI_API_KEY
 });
-// Ensure that the 'chatgpt' module is imported correctly
-var openai = new OpenAI({
-    apiKey: OPENAI_API_KEY, // defaults to process.env["OPENAI_API_KEY"]
-});
-app.use(bodyParser.urlencoded({
+app.use(body_parser_1["default"].urlencoded({
     extended: true
 }));
-app.use(bodyParser.json());
-app.use(cors());
+app.use(body_parser_1["default"].json());
+app.use((0, cors_1["default"])());
 app.post('/query', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
-    var _a, ProfileName, WaId, From, AccountSid, from, isUser, user, prompt, response, error_1;
+    var _a, ProfileName, WaId, From, AccountSid, SmsMessageSid, MessageSid, from, isUser, prevMessagesId, pre, messages, newMsg, prompt, response, error_1;
     return __generator(this, function (_b) {
         switch (_b.label) {
             case 0:
-                _b.trys.push([0, 6, , 7]);
+                _b.trys.push([0, 10, , 11]);
                 console.log('\n\n', req.body, '\n\n');
-                _a = req.body, ProfileName = _a.ProfileName, WaId = _a.WaId, From = _a.From, AccountSid = _a.AccountSid;
+                _a = req.body, ProfileName = _a.ProfileName, WaId = _a.WaId, From = _a.From, AccountSid = _a.AccountSid, SmsMessageSid = _a.SmsMessageSid, MessageSid = _a.MessageSid;
                 from = parseInt(From.split('+')[1]);
                 return [4 /*yield*/, dbClient.user.findUnique({
                         where: {
@@ -81,6 +82,7 @@ app.post('/query', function (req, res) { return __awaiter(void 0, void 0, void 0
                     })];
             case 1:
                 isUser = _b.sent();
+                prevMessagesId = void 0;
                 if (!!isUser) return [3 /*break*/, 3];
                 return [4 /*yield*/, dbClient.user.create({
                         data: {
@@ -91,18 +93,72 @@ app.post('/query', function (req, res) { return __awaiter(void 0, void 0, void 0
                         }
                     })];
             case 2:
-                user = _b.sent();
+                isUser = _b.sent();
                 _b.label = 3;
-            case 3:
+            case 3: return [4 /*yield*/, dbClient.messages.findFirst({
+                    where: {
+                        userId: isUser === null || isUser === void 0 ? void 0 : isUser.id
+                    },
+                    select: {
+                        id: true
+                    }
+                })];
+            case 4:
+                pre = _b.sent();
+                if (pre) {
+                    prevMessagesId = pre.id;
+                }
+                if (!!pre) return [3 /*break*/, 6];
+                return [4 /*yield*/, dbClient.messages.create({
+                        data: {
+                            user: {
+                                connect: {
+                                    id: isUser.id
+                                }
+                            }
+                        }
+                    })];
+            case 5:
+                messages = _b.sent();
+                prevMessagesId = messages.id;
+                _b.label = 6;
+            case 6: return [4 /*yield*/, dbClient.message.create({
+                    data: {
+                        SmsMessageSid: SmsMessageSid,
+                        MessageSid: MessageSid,
+                        messages: {
+                            connect: {
+                                id: prevMessagesId
+                            }
+                        },
+                        body: req.body.Body,
+                        role: types_1.role.User
+                    }
+                })];
+            case 7:
+                newMsg = _b.sent();
                 // api = new ChatGPTAPI({
                 //     apiKey: OPENAI_API_KEY,
                 // });
-                console.log(api);
-                return [4 /*yield*/, api.sendMessage(req.body.Body)];
-            case 4:
+                // console.log(api)
+                // const prompt = await api.sendMessage(req.body.Body);
+                // console.log(prompt.text);
+                console.log('\n\n', prevMessagesId, '\n\n');
+                return [4 /*yield*/, (0, axios_1["default"])({
+                        baseURL: BASEURL,
+                        url: '/generate',
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        data: {
+                            prevMessagesId: prevMessagesId,
+                            message: req.body.Body
+                        }
+                    })];
+            case 8:
                 prompt = _b.sent();
-                console.log(prompt.text);
-                return [4 /*yield*/, axios({
+                return [4 /*yield*/, (0, axios_1["default"])({
                         baseURL: BASEURL,
                         url: '/reply',
                         method: 'POST',
@@ -111,17 +167,18 @@ app.post('/query', function (req, res) { return __awaiter(void 0, void 0, void 0
                         },
                         data: {
                             to: "whatsapp:+".concat(isUser === null || isUser === void 0 ? void 0 : isUser.Number),
-                            message: req.body.Body
+                            message: prompt.data.prompt,
+                            prevMessagesId: prevMessagesId
                         }
                     })];
-            case 5:
+            case 9:
                 response = _b.sent();
                 return [2 /*return*/, res.status(200).json(req.body)];
-            case 6:
+            case 10:
                 error_1 = _b.sent();
                 console.log(error_1);
                 return [2 /*return*/, res.status(500).json({ message: 'Internal Error', error: error_1 })];
-            case 7: return [2 /*return*/];
+            case 11: return [2 /*return*/];
         }
     });
 }); });
@@ -132,23 +189,41 @@ function splitMessage(text, chunkSize) {
     }
     return chunks;
 }
-app.get('/', function (req, res) {
-    return res.status(200).json({ message: 'Hello from server' });
-});
-app.post('/reply', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
-    var client, parsedInput, _a, to, message, prompt, responseContent, responseChunks, _i, responseChunks_1, chunk, response, error_2;
+var generateMessageArray = function (prev, message) {
+    var result = prev.messages.map(function (mess) { return ({
+        content: mess.body,
+        role: mess.role
+    }); });
+    result.push({ role: types_1.role.User, content: message });
+    return result;
+};
+app.post('/generate', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
+    var _a, prevMessagesId, message, prevMessages, messages, prompt, error_2;
     return __generator(this, function (_b) {
         switch (_b.label) {
             case 0:
-                _b.trys.push([0, 6, , 7]);
-                client = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
-                parsedInput = replyMessage.safeParse(req.body);
-                if (!parsedInput.success) {
-                    console.log('Validation Error');
-                    return [2 /*return*/, res.status(400).json({ message: 'Validation Error' })];
-                }
-                _a = parsedInput.data, to = _a.to, message = _a.message;
-                return [4 /*yield*/, axios({
+                _b.trys.push([0, 4, , 5]);
+                _a = req.body, prevMessagesId = _a.prevMessagesId, message = _a.message;
+                return [4 /*yield*/, dbClient.messages.findUnique({
+                        where: {
+                            id: prevMessagesId
+                        },
+                        include: {
+                            messages: {
+                                select: {
+                                    body: true,
+                                    role: true
+                                }
+                            }
+                        }
+                    })];
+            case 1:
+                prevMessages = _b.sent();
+                console.log('\n\n', prevMessages, '\n\n');
+                if (!(prevMessages === null || prevMessages === void 0 ? void 0 : prevMessages.messages)) return [3 /*break*/, 3];
+                messages = generateMessageArray(prevMessages, message);
+                console.log('\n\n', messages, '\n\n');
+                return [4 /*yield*/, (0, axios_1["default"])({
                         method: 'POST',
                         baseURL: 'https://api.openai.com/v1/chat/completions',
                         headers: {
@@ -157,39 +232,78 @@ app.post('/reply', function (req, res) { return __awaiter(void 0, void 0, void 0
                         },
                         data: {
                             model: "gpt-3.5-turbo",
-                            messages: [{ "role": "user", "content": message }],
-                            temperature: 0.7,
+                            messages: messages,
+                            temperature: 0.7
                         }
                     })];
-            case 1:
+            case 2:
                 prompt = _b.sent();
-                console.log('\n\n', prompt.data, '\n\n');
-                console.log(prompt.data.choices[0].message.content);
-                console.log(typeof prompt.data.choices);
-                responseContent = prompt.data.choices[0].message.content;
+                console.log(prompt);
+                return [2 /*return*/, res.status(200).json({ prompt: prompt.data.choices[0].message.content })];
+            case 3: return [3 /*break*/, 5];
+            case 4:
+                error_2 = _b.sent();
+                console.log(error_2);
+                return [2 /*return*/, res.status(500).json({ message: 'Internal Error', error: error_2 })];
+            case 5: return [2 /*return*/];
+        }
+    });
+}); });
+app.get('/', function (req, res) {
+    return res.status(200).json({ message: 'Hello from server' });
+});
+app.post('/reply', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
+    var client, parsedInput, _a, to, message, prevMessagesId, responseContent, responseChunks, _i, responseChunks_1, chunk, response, newMsg, error_3;
+    return __generator(this, function (_b) {
+        switch (_b.label) {
+            case 0:
+                _b.trys.push([0, 6, , 7]);
+                client = (0, twilio_1["default"])(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
+                parsedInput = types_1.replyMessage.safeParse(req.body);
+                if (!parsedInput.success) {
+                    console.log('Validation Error');
+                    return [2 /*return*/, res.status(400).json({ message: 'Validation Error' })];
+                }
+                _a = parsedInput.data, to = _a.to, message = _a.message, prevMessagesId = _a.prevMessagesId;
+                responseContent = message;
                 responseChunks = splitMessage(responseContent, 1599);
                 _i = 0, responseChunks_1 = responseChunks;
-                _b.label = 2;
-            case 2:
+                _b.label = 1;
+            case 1:
                 if (!(_i < responseChunks_1.length)) return [3 /*break*/, 5];
                 chunk = responseChunks_1[_i];
                 return [4 /*yield*/, client.messages.create({
                         body: chunk,
                         from: "whatsapp:".concat(TWILIO_PHONE_NUMBER),
-                        to: to,
+                        to: to
                     })];
-            case 3:
+            case 2:
                 response = _b.sent();
                 console.log("Message sent with SID: ".concat(response.sid));
-                console.log('\n\n', response.body, '\n\n');
+                console.log('\n\n', response, '\n\n');
+                return [4 /*yield*/, dbClient.message.create({
+                        data: {
+                            SmsMessageSid: response.sid,
+                            MessageSid: response.sid,
+                            messages: {
+                                connect: {
+                                    id: parseInt(prevMessagesId)
+                                }
+                            },
+                            body: chunk,
+                            role: types_1.role.Assistant
+                        }
+                    })];
+            case 3:
+                newMsg = _b.sent();
                 _b.label = 4;
             case 4:
                 _i++;
-                return [3 /*break*/, 2];
+                return [3 /*break*/, 1];
             case 5: return [2 /*return*/, res.status(200).json({ message: 'Message sent successfully' })];
             case 6:
-                error_2 = _b.sent();
-                console.error('Error sending message:', error_2);
+                error_3 = _b.sent();
+                console.error('Error sending message:', error_3);
                 return [2 /*return*/, res.status(500).json({ error: 'Failed to send message' })];
             case 7: return [2 /*return*/];
         }
@@ -201,7 +315,7 @@ app.get('/chat-begin', function (req, res) { return __awaiter(void 0, void 0, vo
         switch (_a.label) {
             case 0: return [4 /*yield*/, openai.chat.completions.create({
                     messages: [{ role: 'user', content: 'Say this is a test' }],
-                    model: 'gpt-3.5-turbo',
+                    model: 'gpt-3.5-turbo'
                 })];
             case 1:
                 completion = _a.sent();

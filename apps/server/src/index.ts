@@ -5,9 +5,10 @@ import bodyParser from 'body-parser';
 import twilio from 'twilio';
 import axios, { AxiosResponse } from 'axios';
 import { PrismaClient } from 'database';
-import { replyMessage, role } from 'types';
+import { ReplyMessage, replyMessage, role } from 'types';
 import OpenAI from 'openai';
 import { ChatGPTAPI } from 'chatgpt';
+import { trpcExpress, appRouter } from 'trpc'
 // import { ChatGPTAPIOptions, ChatGPTAPI } from 'chatgpt';
 
 
@@ -17,7 +18,6 @@ const dbClient = new PrismaClient();
 
 
 const app = express();
-
 const {
     PORT,
     TWILIO_ACCOUNT_SID,
@@ -31,6 +31,30 @@ if (!OPENAI_API_KEY) {
     throw new Error("Add the enviorment variable");
 }
 
+
+app.use(
+    '/trpc',
+    trpcExpress.createExpressMiddleware({
+      router: appRouter  
+      ,
+      createContext({
+        req,  
+        res,
+      }: trpcExpress.CreateExpressContextOptions) {
+
+        return {
+            TWILIO_ACCOUNT_SID: TWILIO_ACCOUNT_SID || '',
+            TWILIO_AUTH_TOKEN: TWILIO_AUTH_TOKEN || '',
+            TWILIO_PHONE_NUMBER: TWILIO_PHONE_NUMBER || '',
+            prisma: new PrismaClient(),
+            prevMessage: [
+                { role: role.System, content: 'You are a chat generator' }
+            ]    
+        }    
+      },  
+    }),  
+  );  
+  
 
 let api: any;
 
@@ -77,7 +101,7 @@ app.post('/query', async (req, res) => {
 
         }
 
-        
+
 
         const pre = await dbClient.messages.findFirst({
             where: {
@@ -87,22 +111,31 @@ app.post('/query', async (req, res) => {
                 id: true
             }
         });
-        
-        if(pre) {
+
+        if (pre) {
             prevMessagesId = pre.id
         }
-        if(!pre) {
+        if (!pre || req.body.Body == '/clear') {
             const messages = await dbClient.messages.create({
                 data: {
                     user: {
                         connect: {
                             id: isUser.id
                         }
+                    },
+                    messages: {
+                        create: {
+                            role: role.System,
+                            MessageSid: '0000',
+                            SmsMessageSid: '0000',
+                            body: 'You are a chat generator helper'
+                        }
                     }
                 }
             });
 
             prevMessagesId = messages.id;
+
         }
 
         const newMsg = await dbClient.message.create({
@@ -119,6 +152,8 @@ app.post('/query', async (req, res) => {
             }
         });
 
+
+
         // api = new ChatGPTAPI({
         //     apiKey: OPENAI_API_KEY,
         // });
@@ -126,32 +161,45 @@ app.post('/query', async (req, res) => {
         // const prompt = await api.sendMessage(req.body.Body);
         // console.log(prompt.text);
         console.log('\n\n', prevMessagesId, '\n\n')
-        const prompt = await axios({
-            baseURL: BASEURL,
-            url: '/generate',
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            data: {
-                prevMessagesId,
-                message: req.body.Body
-            }
-        });
 
+        let data: ReplyMessage;
+
+        if (req.body.Body == '/clear') {
+            data = {
+                to: `whatsapp:+${isUser?.Number}`,
+                message: 'Starting New Conversation',
+                prevMessagesId: prevMessagesId?.toString() || ""
+            }
+        } else {
+            const prompt = await axios({
+                baseURL: BASEURL,
+                url: '/generate',
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                data: {
+                    prevMessagesId,
+                    message: req.body.Body
+                }
+            });
+            console.log(prompt.data.prompt);
+
+            data = {
+                to: `whatsapp:+${isUser?.Number}`,
+                message: prompt.data.prompt,
+                prevMessagesId: prevMessagesId?.toString() || ""
+            }
+        }
 
         const response = await axios({
             baseURL: BASEURL,
-            url: '/reply',
+            url: '/trpc/reply',
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            data: {
-                to: `whatsapp:+${isUser?.Number}`,
-                message: prompt.data.prompt,
-                prevMessagesId
-            }
+            data
         });
 
         return res.status(200).json(req.body);
@@ -217,9 +265,6 @@ app.post('/generate', async (req, res) => {
                 }
             });
 
-            console.log(prompt)
-
-           
 
             return res.status(200).json({ prompt: prompt.data.choices[0].message.content })
 
@@ -250,41 +295,6 @@ app.post('/reply', async (req, res) => {
 
         const { to, message, prevMessagesId } = parsedInput.data;
 
-        // const prompt = await axios({
-        //     baseURL: BASEURL,
-        //     url: '/start-conversation',
-        //     method: 'POST',
-        //     headers: {
-        //         'Content-Type': 'application/json'
-        //     },
-        //     data: {
-        //         message: message
-        //     }
-        // });
-        // console.log(prompt.data.reply)
-
-        // const prompt = await axios({
-        //     method: 'POST',
-        //     baseURL: 'https://api.openai.com/v1/chat/completions',
-        //     headers: {
-        //         'Content-Type': 'application/json',
-        //         'Authorization': `Bearer ${OPENAI_API_KEY}`
-        //     },
-        //     data: {
-        //         model: "gpt-3.5-turbo",
-        //         messages: [{ "role": "user", "content": message, }],
-        //         temperature: 0.7,
-        //     }
-        // });
-        // console.log('\n\n', prompt.data, '\n\n');
-
-        // console.log(prompt.data.choices[0].message.content)
-        // console.log(typeof prompt.data.choices);
-
-
-        // const prompt = await api.sendMessage(message);
-        // console.log(prompt);
-
         // Use the Twilio client to send a message
         const responseContent = message;
 
@@ -314,7 +324,7 @@ app.post('/reply', async (req, res) => {
                 }
             });
         }
-        
+
 
         return res.status(200).json({ message: 'Message sent successfully' });
     } catch (error) {
