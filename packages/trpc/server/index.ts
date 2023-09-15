@@ -1,15 +1,16 @@
 import twilio from 'twilio';
 import { publicProcedure, router } from './trpc';
-import { replyMessage, replyOutput, role } from 'types';
-import { splitMessage } from '../lib/helper';
+import { ReplyMessage, queryBody, replyMessage, replyOutput, role } from 'types';
+import { getCookie, setCookie, splitMessage } from '../lib/helper';
 export * as trpcExpress from '@trpc/server/adapters/express';
+import { serialize } from 'cookie';
 
 
 export const appRouter = router({
     reply: publicProcedure
-    .input(replyMessage)
-    .output(replyOutput)
-    .mutation(async ({ ctx, input }) => {
+        .input(replyMessage)
+        .output(replyOutput)
+        .mutation(async ({ ctx, input }) => {
             const { TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER } = ctx;
             const { to, message, prevMessagesId } = input;
             console.log(TWILIO_ACCOUNT_SID)
@@ -35,7 +36,7 @@ export const appRouter = router({
                         MessageSid: response.sid,
                         messages: {
                             connect: {
-                                id: parseInt(prevMessagesId)
+                                id: prevMessagesId
                             }
                         },
                         body: chunk,
@@ -49,7 +50,134 @@ export const appRouter = router({
                 code: 200
             }
 
-        })
+        }),
+    query: publicProcedure
+        .input(queryBody)
+        .mutation(async ({ ctx, input }) => {
+            console.log('\n\n', input, '\n\n');
+
+            const { ProfileName, WaId, From, AccountSid, SmsMessageSid, MessageSid, Body } = input;
+
+            const from = parseInt(From.split('+')[1]);
+
+            let isUser = await ctx.prisma.user.findUnique({
+                where: {
+                    Number: from
+                }
+            });
+            // Data object for message
+            const data = {
+                to: `whatsapp:+${isUser?.Number}`,
+                message: '',
+                prevMessagesId: ctx.preMessagesId
+            }
+
+
+            if (!isUser) {
+                isUser = await ctx.prisma.user.create({
+                    data: {
+                        ProfileName,
+                        WaId,
+                        Number: from,
+                        AccountSid
+                    }
+                });
+                
+                const messages = await ctx.prisma.messages.create({
+                    data: {
+                        user: {
+                            connect: {
+                                id: isUser.id
+                            }
+                        },
+                        messages: {
+                            create: {
+                                role: role.System,
+                                MessageSid: '0000',
+                                SmsMessageSid: '0000',
+                                body: 'You are a chat generator helper'
+                            }
+                        }
+                    }
+                });                
+                data.prevMessagesId = messages.id;
+                ctx.preMessagesId = messages.id;
+            }
+
+            // Getting all Messages
+            if(!ctx.preMessagesId) {
+                const messages = await ctx.prisma.messages.create({
+                    data: {
+                        user: {
+                            connect: {
+                                id: isUser.id
+                            }
+                        },
+                        messages: {
+                            create: {
+                                role: role.System,
+                                MessageSid: '0000',
+                                SmsMessageSid: '0000',
+                                body: 'You are a chat generator helper'
+                            }
+                        }
+                    }
+                });
+                ctx.preMessagesId = messages.id;
+                data.prevMessagesId = messages.id;
+                
+            }
+            const messages = await ctx.prisma.messages.findUnique({
+                where: {
+                    id: ctx.preMessagesId
+                }
+            });
+
+            // checking for commands
+
+
+            if (Body == '/clear') {
+                const messages = await ctx.prisma.messages.create({
+                    data: {
+                        user: {
+                            connect: {
+                                id: isUser.id
+                            }
+                        },
+                        messages: {
+                            create: {
+                                role: role.System,
+                                MessageSid: '0000',
+                                SmsMessageSid: '0000',
+                                body: 'You are a chat generator helper'
+                            }
+                        }
+                    }
+                });
+                ctx.preMessagesId = messages.id;
+                data.prevMessagesId = messages.id;
+                data.message = 'Starting a new Converstaion';
+                return {
+                    data,
+                }
+            }
+
+            // New Message
+            data.message = Body;
+            console.log(data)
+            return {
+                data, 
+            }
+
+
+
+        }),
+    hello: publicProcedure
+    .query(async (opts) => {
+        return {
+            hllo: 'Hello'
+        }
+    })
 });
 
 // Export type router type signature,

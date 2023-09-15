@@ -38,7 +38,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
-exports.__esModule = true;
+Object.defineProperty(exports, "__esModule", { value: true });
 var express_1 = __importDefault(require("express"));
 var dotenv_1 = __importDefault(require("dotenv"));
 var cors_1 = __importDefault(require("cors"));
@@ -48,30 +48,46 @@ var axios_1 = __importDefault(require("axios"));
 var database_1 = require("database");
 var types_1 = require("types");
 var openai_1 = __importDefault(require("openai"));
+var trpc_1 = require("trpc");
 // import { ChatGPTAPIOptions, ChatGPTAPI } from 'chatgpt';
-dotenv_1["default"].config();
+dotenv_1.default.config();
 var dbClient = new database_1.PrismaClient();
-var app = (0, express_1["default"])();
+var app = (0, express_1.default)();
 var _a = process.env, PORT = _a.PORT, TWILIO_ACCOUNT_SID = _a.TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN = _a.TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER = _a.TWILIO_PHONE_NUMBER, BASEURL = _a.BASEURL, OPENAI_API_KEY = _a.OPENAI_API_KEY;
 if (!OPENAI_API_KEY) {
     throw new Error("Add the enviorment variable");
 }
+app.use('/trpc', trpc_1.trpcExpress.createExpressMiddleware({
+    router: trpc_1.appRouter,
+    createContext: function (_a) {
+        var req = _a.req, res = _a.res;
+        return {
+            TWILIO_ACCOUNT_SID: TWILIO_ACCOUNT_SID || '',
+            TWILIO_AUTH_TOKEN: TWILIO_AUTH_TOKEN || '',
+            TWILIO_PHONE_NUMBER: TWILIO_PHONE_NUMBER || '',
+            prisma: new database_1.PrismaClient(),
+            prevMessage: [
+                { role: types_1.role.System, content: 'You are a chat generator' }
+            ]
+        };
+    },
+}));
 var api;
 // Ensure that the 'chatgpt' module is imported correctly
-var openai = new openai_1["default"]({
-    apiKey: OPENAI_API_KEY
+var openai = new openai_1.default({
+    apiKey: OPENAI_API_KEY, // defaults to process.env["OPENAI_API_KEY"]
 });
-app.use(body_parser_1["default"].urlencoded({
+app.use(body_parser_1.default.urlencoded({
     extended: true
 }));
-app.use(body_parser_1["default"].json());
-app.use((0, cors_1["default"])());
+app.use(body_parser_1.default.json());
+app.use((0, cors_1.default)());
 app.post('/query', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
-    var _a, ProfileName, WaId, From, AccountSid, SmsMessageSid, MessageSid, from, isUser, prevMessagesId, pre, messages, newMsg, prompt, response, error_1;
+    var _a, ProfileName, WaId, From, AccountSid, SmsMessageSid, MessageSid, from, isUser, prevMessagesId, pre, messages, newMsg, data, prompt, response, error_1;
     return __generator(this, function (_b) {
         switch (_b.label) {
             case 0:
-                _b.trys.push([0, 10, , 11]);
+                _b.trys.push([0, 12, , 13]);
                 console.log('\n\n', req.body, '\n\n');
                 _a = req.body, ProfileName = _a.ProfileName, WaId = _a.WaId, From = _a.From, AccountSid = _a.AccountSid, SmsMessageSid = _a.SmsMessageSid, MessageSid = _a.MessageSid;
                 from = parseInt(From.split('+')[1]);
@@ -108,12 +124,20 @@ app.post('/query', function (req, res) { return __awaiter(void 0, void 0, void 0
                 if (pre) {
                     prevMessagesId = pre.id;
                 }
-                if (!!pre) return [3 /*break*/, 6];
+                if (!(!pre || req.body.Body == '/clear')) return [3 /*break*/, 6];
                 return [4 /*yield*/, dbClient.messages.create({
                         data: {
                             user: {
                                 connect: {
                                     id: isUser.id
+                                }
+                            },
+                            messages: {
+                                create: {
+                                    role: types_1.role.System,
+                                    MessageSid: '0000',
+                                    SmsMessageSid: '0000',
+                                    body: 'You are a chat generator helper'
                                 }
                             }
                         }
@@ -144,41 +168,52 @@ app.post('/query', function (req, res) { return __awaiter(void 0, void 0, void 0
                 // const prompt = await api.sendMessage(req.body.Body);
                 // console.log(prompt.text);
                 console.log('\n\n', prevMessagesId, '\n\n');
-                return [4 /*yield*/, (0, axios_1["default"])({
-                        baseURL: BASEURL,
-                        url: '/generate',
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        data: {
-                            prevMessagesId: prevMessagesId,
-                            message: req.body.Body
-                        }
-                    })];
-            case 8:
-                prompt = _b.sent();
-                return [4 /*yield*/, (0, axios_1["default"])({
-                        baseURL: BASEURL,
-                        url: '/reply',
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        data: {
-                            to: "whatsapp:+".concat(isUser === null || isUser === void 0 ? void 0 : isUser.Number),
-                            message: prompt.data.prompt,
-                            prevMessagesId: prevMessagesId
-                        }
-                    })];
+                data = void 0;
+                if (!(req.body.Body == '/clear')) return [3 /*break*/, 8];
+                data = {
+                    to: "whatsapp:+".concat(isUser === null || isUser === void 0 ? void 0 : isUser.Number),
+                    message: 'Starting New Conversation',
+                    prevMessagesId: (prevMessagesId === null || prevMessagesId === void 0 ? void 0 : prevMessagesId.toString()) || ""
+                };
+                return [3 /*break*/, 10];
+            case 8: return [4 /*yield*/, (0, axios_1.default)({
+                    baseURL: BASEURL,
+                    url: '/generate',
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    data: {
+                        prevMessagesId: prevMessagesId,
+                        message: req.body.Body
+                    }
+                })];
             case 9:
+                prompt = _b.sent();
+                console.log(prompt.data.prompt);
+                data = {
+                    to: "whatsapp:+".concat(isUser === null || isUser === void 0 ? void 0 : isUser.Number),
+                    message: prompt.data.prompt,
+                    prevMessagesId: (prevMessagesId === null || prevMessagesId === void 0 ? void 0 : prevMessagesId.toString()) || ""
+                };
+                _b.label = 10;
+            case 10: return [4 /*yield*/, (0, axios_1.default)({
+                    baseURL: BASEURL,
+                    url: '/trpc/reply',
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    data: data
+                })];
+            case 11:
                 response = _b.sent();
                 return [2 /*return*/, res.status(200).json(req.body)];
-            case 10:
+            case 12:
                 error_1 = _b.sent();
                 console.log(error_1);
                 return [2 /*return*/, res.status(500).json({ message: 'Internal Error', error: error_1 })];
-            case 11: return [2 /*return*/];
+            case 13: return [2 /*return*/];
         }
     });
 }); });
@@ -223,7 +258,7 @@ app.post('/generate', function (req, res) { return __awaiter(void 0, void 0, voi
                 if (!(prevMessages === null || prevMessages === void 0 ? void 0 : prevMessages.messages)) return [3 /*break*/, 3];
                 messages = generateMessageArray(prevMessages, message);
                 console.log('\n\n', messages, '\n\n');
-                return [4 /*yield*/, (0, axios_1["default"])({
+                return [4 /*yield*/, (0, axios_1.default)({
                         method: 'POST',
                         baseURL: 'https://api.openai.com/v1/chat/completions',
                         headers: {
@@ -233,12 +268,11 @@ app.post('/generate', function (req, res) { return __awaiter(void 0, void 0, voi
                         data: {
                             model: "gpt-3.5-turbo",
                             messages: messages,
-                            temperature: 0.7
+                            temperature: 0.7,
                         }
                     })];
             case 2:
                 prompt = _b.sent();
-                console.log(prompt);
                 return [2 /*return*/, res.status(200).json({ prompt: prompt.data.choices[0].message.content })];
             case 3: return [3 /*break*/, 5];
             case 4:
@@ -258,7 +292,7 @@ app.post('/reply', function (req, res) { return __awaiter(void 0, void 0, void 0
         switch (_b.label) {
             case 0:
                 _b.trys.push([0, 6, , 7]);
-                client = (0, twilio_1["default"])(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
+                client = (0, twilio_1.default)(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
                 parsedInput = types_1.replyMessage.safeParse(req.body);
                 if (!parsedInput.success) {
                     console.log('Validation Error');
@@ -275,7 +309,7 @@ app.post('/reply', function (req, res) { return __awaiter(void 0, void 0, void 0
                 return [4 /*yield*/, client.messages.create({
                         body: chunk,
                         from: "whatsapp:".concat(TWILIO_PHONE_NUMBER),
-                        to: to
+                        to: to,
                     })];
             case 2:
                 response = _b.sent();
@@ -315,7 +349,7 @@ app.get('/chat-begin', function (req, res) { return __awaiter(void 0, void 0, vo
         switch (_a.label) {
             case 0: return [4 /*yield*/, openai.chat.completions.create({
                     messages: [{ role: 'user', content: 'Say this is a test' }],
-                    model: 'gpt-3.5-turbo'
+                    model: 'gpt-3.5-turbo',
                 })];
             case 1:
                 completion = _a.sent();

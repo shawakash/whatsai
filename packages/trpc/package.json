@@ -8,9 +8,11 @@
     "dependencies": {
       "@trpc/client": "^10.38.2",
       "@trpc/server": "^10.38.2",
-      "twilio": "^4.16.0"
+      "twilio": "^4.16.0",
+      "cookie": "0.5.0"
     },
     "devDependencies": {
-      "types": "*"
+      "types": "*",
+      "@types/cookie": "0.5.0"
     }
   }

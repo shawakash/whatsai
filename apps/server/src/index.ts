@@ -8,7 +8,8 @@ import { PrismaClient } from 'database';
 import { ReplyMessage, replyMessage, role } from 'types';
 import OpenAI from 'openai';
 import { ChatGPTAPI } from 'chatgpt';
-import { trpcExpress, appRouter } from 'trpc'
+import { trpcExpress, appRouter, createExpressMiddleware } from 'trpc'
+import { getCookie, setCookie } from 'trpc/lib/helper';
 // import { ChatGPTAPIOptions, ChatGPTAPI } from 'chatgpt';
 
 
@@ -24,36 +25,23 @@ const {
     TWILIO_AUTH_TOKEN,
     TWILIO_PHONE_NUMBER,
     BASEURL,
-    OPENAI_API_KEY
+    OPENAI_API_KEY,
 } = process.env;
 
 if (!OPENAI_API_KEY) {
     throw new Error("Add the enviorment variable");
 }
 
+let preMessageId;
 
 app.use(
     '/trpc',
-    trpcExpress.createExpressMiddleware({
-      router: appRouter  
-      ,
-      createContext({
-        req,  
-        res,
-      }: trpcExpress.CreateExpressContextOptions) {
-
-        return {
-            TWILIO_ACCOUNT_SID: TWILIO_ACCOUNT_SID || '',
-            TWILIO_AUTH_TOKEN: TWILIO_AUTH_TOKEN || '',
-            TWILIO_PHONE_NUMBER: TWILIO_PHONE_NUMBER || '',
-            prisma: new PrismaClient(),
-            prevMessage: [
-                { role: role.System, content: 'You are a chat generator' }
-            ]    
-        }    
-      },  
-    }),  
-  );  
+    createExpressMiddleware(
+        TWILIO_ACCOUNT_SID || '', 
+        TWILIO_AUTH_TOKEN || '', 
+        TWILIO_PHONE_NUMBER || '',
+    )
+);  
   
 
 let api: any;
@@ -78,133 +66,68 @@ app.use(cors());
 app.post('/query', async (req, res) => {
     try {
 
-        console.log('\n\n', req.body, '\n\n');
-
-        const { ProfileName, WaId, From, AccountSid, SmsMessageSid, MessageSid } = req.body;
-        const from = parseInt(From.split('+')[1]);
-
-        let isUser = await dbClient.user.findUnique({
-            where: {
-                Number: from
-            }
-        });
-        let prevMessagesId;
-        if (!isUser) {
-            isUser = await dbClient.user.create({
-                data: {
-                    ProfileName,
-                    WaId,
-                    Number: from,
-                    AccountSid
-                }
-            });
-
-        }
-
-
-
-        const pre = await dbClient.messages.findFirst({
-            where: {
-                userId: isUser?.id
-            },
-            select: {
-                id: true
-            }
-        });
-
-        if (pre) {
-            prevMessagesId = pre.id
-        }
-        if (!pre || req.body.Body == '/clear') {
-            const messages = await dbClient.messages.create({
-                data: {
-                    user: {
-                        connect: {
-                            id: isUser.id
-                        }
-                    },
-                    messages: {
-                        create: {
-                            role: role.System,
-                            MessageSid: '0000',
-                            SmsMessageSid: '0000',
-                            body: 'You are a chat generator helper'
-                        }
-                    }
-                }
-            });
-
-            prevMessagesId = messages.id;
-
-        }
-
-        const newMsg = await dbClient.message.create({
-            data: {
-                SmsMessageSid,
-                MessageSid,
-                messages: {
-                    connect: {
-                        id: prevMessagesId
-                    }
-                },
-                body: req.body.Body,
-                role: role.User
-            }
-        });
-
-
-
-        // api = new ChatGPTAPI({
-        //     apiKey: OPENAI_API_KEY,
-        // });
-        // console.log(api)
-        // const prompt = await api.sendMessage(req.body.Body);
-        // console.log(prompt.text);
-        console.log('\n\n', prevMessagesId, '\n\n')
-
-        let data: ReplyMessage;
-
-        if (req.body.Body == '/clear') {
-            data = {
-                to: `whatsapp:+${isUser?.Number}`,
-                message: 'Starting New Conversation',
-                prevMessagesId: prevMessagesId?.toString() || ""
-            }
-        } else {
-            const prompt = await axios({
-                baseURL: BASEURL,
-                url: '/generate',
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                data: {
-                    prevMessagesId,
-                    message: req.body.Body
-                }
-            });
-            console.log(prompt.data.prompt);
-
-            data = {
-                to: `whatsapp:+${isUser?.Number}`,
-                message: prompt.data.prompt,
-                prevMessagesId: prevMessagesId?.toString() || ""
-            }
-        }
-
-        const response = await axios({
+        const queryRes = await axios({
             baseURL: BASEURL,
-            url: '/trpc/reply',
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
+            url: '/trpc/query',
+            data: req.body,
+            headers: { 
+                "Content-Type": 'application/json',
+                "preMessagesId": getCookie(req, 'preMessagesId')
             },
-            data
+            method: 'POST'
         });
+    
+        preMessageId = queryRes.data.result.data.data.prevMessagesId;
+        
+        if(preMessageId != getCookie(req, 'preMessagesId')) {
+            res.setHeader('Set-Cookie', setCookie('preMessagesId', preMessageId));
+        }
+
+
+        // let data: ReplyMessage;
+
+        // if (req.body.Body == '/clear') {
+        //     data = {
+        //         to: `whatsapp:+${isUser?.Number}`,
+        //         message: 'Starting New Conversation',
+        //         prevMessagesId: prevMessagesId?.toString() || ""
+        //     }
+        // } else {
+        //     const prompt = await axios({
+        //         baseURL: BASEURL,
+        //         url: '/generate',
+        //         method: 'POST',
+        //         headers: {
+        //             'Content-Type': 'application/json'
+        //         },
+        //         data: {
+        //             prevMessagesId,
+        //             message: req.body.Body
+        //         }
+        //     });
+        //     console.log(prompt.data.prompt);
+
+        //     data = {
+        //         to: `whatsapp:+${isUser?.Number}`,
+        //         message: prompt.data.prompt,
+        //         prevMessagesId: prevMessagesId?.toString() || ""
+        //     }
+        // }
+
+        // const response = await axios({
+        //     baseURL: BASEURL,
+        //     url: '/trpc/reply',
+        //     method: 'POST',
+        //     headers: {
+        //         'Content-Type': 'application/json'
+        //     },
+        //     data
+        // });
 
         return res.status(200).json(req.body);
     } catch (error) {
-        console.log(error);
+        //@ts-ignore
+        console.log(error.response.data)
         return res.status(500).json({ message: 'Internal Error', error })
     }
 });
@@ -316,7 +239,7 @@ app.post('/reply', async (req, res) => {
                     MessageSid: response.sid,
                     messages: {
                         connect: {
-                            id: parseInt(prevMessagesId)
+                            id: prevMessagesId
                         }
                     },
                     body: chunk,
