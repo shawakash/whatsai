@@ -3,7 +3,7 @@ import { appRouter, trpcExpress } from "./server"
 import { role } from "types"
 import { getCookie } from "./lib/helper"
 
-export const createExpressMiddleware = (TWILIO_ACCOUNT_SID: string, TWILIO_AUTH_TOKEN: string, TWILIO_PHONE_NUMBER: string) => {
+export const createExpressMiddleware = (TWILIO_ACCOUNT_SID: string, TWILIO_AUTH_TOKEN: string, TWILIO_PHONE_NUMBER: string, OPENAI_API_KEY: string) => {
     return trpcExpress.createExpressMiddleware({
         router: appRouter  
         ,
@@ -12,9 +12,10 @@ export const createExpressMiddleware = (TWILIO_ACCOUNT_SID: string, TWILIO_AUTH_
           res,
         }: trpcExpress.CreateExpressContextOptions) {
           return {
-              TWILIO_ACCOUNT_SID: TWILIO_ACCOUNT_SID || '',
-              TWILIO_AUTH_TOKEN: TWILIO_AUTH_TOKEN || '',
-              TWILIO_PHONE_NUMBER: TWILIO_PHONE_NUMBER || '',
+              TWILIO_ACCOUNT_SID,
+              TWILIO_AUTH_TOKEN,
+              TWILIO_PHONE_NUMBER,
+              OPENAI_API_KEY,
               prisma: new PrismaClient(),
               prevMessage: [
                   { role: role.System, content: 'You are a chat generator' }

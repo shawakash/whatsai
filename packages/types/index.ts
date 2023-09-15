@@ -36,6 +36,7 @@ export type ContextType = ({
     TWILIO_ACCOUNT_SID: string, 
     TWILIO_AUTH_TOKEN: string, 
     TWILIO_PHONE_NUMBER: string,
+    OPENAI_API_KEY: string
     preMessagesId: number,
 }
 
@@ -55,3 +56,7 @@ export const queryBody = z.object({
     From: z.string(),
     ApiVersion: z.string(),
   });
+
+export const generateInput = z.object({
+    message: z.string()
+})

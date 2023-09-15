@@ -28,7 +28,7 @@ const {
     OPENAI_API_KEY,
 } = process.env;
 
-if (!OPENAI_API_KEY) {
+if (!OPENAI_API_KEY || !TWILIO_PHONE_NUMBER || !TWILIO_AUTH_TOKEN || !TWILIO_ACCOUNT_SID || !BASEURL) {
     throw new Error("Add the enviorment variable");
 }
 
@@ -37,14 +37,13 @@ let preMessageId;
 app.use(
     '/trpc',
     createExpressMiddleware(
-        TWILIO_ACCOUNT_SID || '', 
-        TWILIO_AUTH_TOKEN || '', 
-        TWILIO_PHONE_NUMBER || '',
+        TWILIO_ACCOUNT_SID,
+        TWILIO_AUTH_TOKEN,
+        TWILIO_PHONE_NUMBER,
+        OPENAI_API_KEY
     )
-);  
-  
+);
 
-let api: any;
 
 
 // Ensure that the 'chatgpt' module is imported correctly
@@ -70,42 +69,40 @@ app.post('/query', async (req, res) => {
             baseURL: BASEURL,
             url: '/trpc/query',
             data: req.body,
-            headers: { 
+            headers: {
                 "Content-Type": 'application/json',
                 "preMessagesId": getCookie(req, 'preMessagesId')
             },
             method: 'POST'
         });
-    
+
         preMessageId = queryRes.data.result.data.data.prevMessagesId;
-        
-        if(preMessageId != getCookie(req, 'preMessagesId')) {
+        console.log(preMessageId);
+        console.log(getCookie(req, 'preMessagesId'))
+        if (preMessageId != getCookie(req, 'preMessagesId')) {
             res.setHeader('Set-Cookie', setCookie('preMessagesId', preMessageId));
         }
+        console.log(preMessageId);
+        console.log(getCookie(req, 'preMessagesId'))
 
 
-        // let data: ReplyMessage;
+        if(req.body.Body != '/clear') {
 
-        // if (req.body.Body == '/clear') {
-        //     data = {
-        //         to: `whatsapp:+${isUser?.Number}`,
-        //         message: 'Starting New Conversation',
-        //         prevMessagesId: prevMessagesId?.toString() || ""
-        //     }
-        // } else {
-        //     const prompt = await axios({
-        //         baseURL: BASEURL,
-        //         url: '/generate',
-        //         method: 'POST',
-        //         headers: {
-        //             'Content-Type': 'application/json'
-        //         },
-        //         data: {
-        //             prevMessagesId,
-        //             message: req.body.Body
-        //         }
-        //     });
-        //     console.log(prompt.data.prompt);
+            const prompt = await axios({
+                baseURL: BASEURL,
+                url: '/trpc/generate',
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    "preMessagesId": getCookie(req, 'preMessagesId')
+                },
+                data: {
+                    message: queryRes.data.result.data.data.message
+                }
+    
+            });
+            console.log(prompt.data.result.data.prompt);
+        }
 
         //     data = {
         //         to: `whatsapp:+${isUser?.Number}`,

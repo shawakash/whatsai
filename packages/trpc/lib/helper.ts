@@ -1,4 +1,5 @@
 import cookie, { serialize } from "cookie";
+import { role } from "types";
 
 export const splitMessage = (text: string, chunkSize: number) => {
     const chunks = [];
@@ -25,4 +26,12 @@ export const getCookie = (req: any, name: string) => {
     if (!cookieHeader) return
     // const cookies = cookie.parse(cookieHeader)
     return cookieHeader[name]
+}
+
+export const generateMessageArray = (prev: ({ messages: { body: string; role: role; }[]; })) => {
+    const result = prev.messages.map((mess: { body: string; role: role }) => ({
+        content: mess.body,
+        role: mess.role
+    }));
+    return result;
 }

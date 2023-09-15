@@ -9,7 +9,8 @@
       "@trpc/client": "^10.38.2",
       "@trpc/server": "^10.38.2",
       "twilio": "^4.16.0",
-      "cookie": "0.5.0"
+      "cookie": "0.5.0",
+      "axios": "^1.5.0"
     },
     "devDependencies": {
       "types": "*",
