@@ -77,6 +77,7 @@ app.post('/query', async (req, res) => {
         });
 
         preMessageId = queryRes.data.result.data.data.prevMessagesId;
+        const data = queryRes.data.result.data.data;
         console.log(preMessageId);
         console.log(getCookie(req, 'preMessagesId'))
         if (preMessageId != getCookie(req, 'preMessagesId')) {
@@ -102,6 +103,7 @@ app.post('/query', async (req, res) => {
     
             });
             console.log(prompt.data.result.data.prompt);
+            data.message = prompt.data.result.data.prompt;
         }
 
         //     data = {
@@ -110,16 +112,15 @@ app.post('/query', async (req, res) => {
         //         prevMessagesId: prevMessagesId?.toString() || ""
         //     }
         // }
-
-        // const response = await axios({
-        //     baseURL: BASEURL,
-        //     url: '/trpc/reply',
-        //     method: 'POST',
-        //     headers: {
-        //         'Content-Type': 'application/json'
-        //     },
-        //     data
-        // });
+        const response = await axios({
+            baseURL: BASEURL,
+            url: '/trpc/reply',
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            data
+        });
 
         return res.status(200).json(req.body);
     } catch (error) {

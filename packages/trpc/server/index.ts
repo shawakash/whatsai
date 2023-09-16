@@ -24,6 +24,7 @@ export const appRouter = router({
 
             // Send each chunk as a separate WhatsApp message
             for (const chunk of responseChunks) {
+                
                 const response = await client.messages.create({
                     body: chunk,
                     from: `whatsapp:${TWILIO_PHONE_NUMBER}`,
