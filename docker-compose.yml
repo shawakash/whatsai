@@ -1,0 +1,25 @@
+version: '3'
+
+services:
+  postgres:
+    image: postgres:latest
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/data/db
+
+  whatsai:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL="postgresql://postgres@localhost:5432/whatsai"
+      - POSTGRES_PASSWORD="postgres"
+    depends_on:
+      - postgres
+
+volumes:
+  postgres_data:
+
