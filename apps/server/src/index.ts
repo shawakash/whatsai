@@ -292,7 +292,7 @@ app.get('/notion', async (req, res) => {
         },
         "parent": {
             "type": "database_id",
-            "database_id": "d9824bdc-8445-4327-be8b-5b47500af6ce"
+            "database_id": "4c9d1264fabf412bbff1f5a671a8c701"
         },
         "properties": {
             "Name": {
@@ -304,20 +304,7 @@ app.get('/notion', async (req, res) => {
                     }
                 ]
             },
-            "Description": {
-                "rich_text": [
-                    {
-                        "text": {
-                            "content": "A dark green leafy vegetable"
-                        }
-                    }
-                ]
-            },
-            "Food group": {
-                "select": {
-                    "name": "🥬 Vegetable"
-                }
-            }
+            
         },
         "children": [
             {
