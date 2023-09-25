@@ -9,10 +9,10 @@ WORKDIR /usr/src/app
 COPY packages*.json ./
 COPY tsconfig.json ./
 COPY packages/database/prisma/schema.prisma ./prisma/
-RUN npx prisma generate
 
 COPY . .
 RUN yarn install
+RUN npx prisma generate
 
 RUN yarn build
 
