@@ -12,10 +12,9 @@ COPY packages/database/prisma/schema.prisma ./prisma/
 
 COPY . .
 RUN yarn install
-RUN npx prisma generate
 
-RUN yarn build
+RUN turbo run build
 
-CMD ["yarn", "dev"]
+CMD ["turbo", "dev"]
 
 EXPOSE 3000
