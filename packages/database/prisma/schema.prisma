@@ -34,5 +34,5 @@ model User {
   WaId         String     @unique
   Number       BigInt     @unique
   AccountSid   String     @unique
-  prevMessages Messages[]
+ls  prevMessages Messages[]
 }

@@ -8,10 +8,11 @@ FROM node:20.6.1-alpine
 WORKDIR /usr/src/app
 COPY packages*.json ./
 COPY tsconfig.json ./
-COPY /packages/database/prisma/schema.prisma ./
-RUN yarn install
+COPY packages/database/prisma/schema.prisma ./prisma/
+RUN npx prisma generate
 
 COPY . .
+RUN yarn install
 
 RUN yarn build
 
