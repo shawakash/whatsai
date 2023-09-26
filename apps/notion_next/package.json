@@ -1,0 +1,29 @@
+{
+  "name": "notion_next",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@trpc/next": "^10.38.4",
+    "next": "latest",
+    "react": "latest",
+    "react-dom": "latest"
+  },
+  "devDependencies": {
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "autoprefixer": "latest",
+    "database": "*",
+    "postcss": "latest",
+    "tailwindcss": "latest",
+    "trpc": "*",
+    "types": "*",
+    "typescript": "latest"
+  }
+}

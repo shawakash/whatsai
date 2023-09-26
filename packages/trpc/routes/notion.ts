@@ -1,9 +1,11 @@
-import { publicProcedure, router } from "../server/trpc";
+import { notion, publicProcedure } from "../server/trpc";
 import { Client } from '@notionhq/client';
 
-export const notionRouter = router({
+export const pageRouter = notion({
     createPage: publicProcedure
-        // .input()
+        .input({
+
+        })
         .mutation(async ({ input, ctx }) => {
 
             const notion = new Client({ auth: 'secret_yYsjvRT9LMEZCFEMdFY3g8A84SDd5rCTyGr17ARMI1p' });

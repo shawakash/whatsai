@@ -59,4 +59,8 @@ export const queryBody = z.object({
 
 export const generateInput = z.object({
     message: z.string()
-})
+});
+
+export type NotionContextType = {
+    prisma: PrismaClient
+}
