@@ -10,4 +10,4 @@ sudo docker-compose down --volumes
 sudo pm2 stop docker-compose
 
 # runnig the compose
-sudo pm2 start ~/whatsai/docker-compose.sh --name docker-compose
+sudo pm2 start "docker-compose up" --name docker-compose
