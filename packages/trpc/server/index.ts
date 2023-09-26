@@ -16,7 +16,7 @@ export const appRouter = router({
         .mutation(async ({ ctx, input }) => {
             const { TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER } = ctx;
             const { to, message, prevMessagesId } = input;
-            console.log(TWILIO_ACCOUNT_SID)
+            console.log(TWILIO_ACCOUNT_SID, 'TWILIO_ACCOUNT_SID')
             const client = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
             // Use the Twilio client to send a message
             const responseContent = message;
