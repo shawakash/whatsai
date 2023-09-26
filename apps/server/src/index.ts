@@ -126,7 +126,7 @@ app.post('/query', async (req, res) => {
         return res.status(200).json(req.body);
     } catch (error) {
         //@ts-ignore
-        console.log(error.response.data)
+        console.log(error)
         return res.status(500).json({ message: 'Internal Error', error })
     }
 });
