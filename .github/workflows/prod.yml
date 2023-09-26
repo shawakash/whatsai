@@ -26,4 +26,4 @@ jobs:
         chmod 600 keyfile
         mkdir -p ~/.ssh
         cp known_hosts ~/.ssh/known_hosts
-        ssh -t -i keyfile ubuntu@ec2-34-232-78-97.compute-1.amazonaws.com "sudo pm2 start dev.sh --name dev"
+        ssh -t -i keyfile ubuntu@ec2-34-232-78-97.compute-1.amazonaws.com "sudo pm2 start ~/whatsai/dev.sh --name dev"
