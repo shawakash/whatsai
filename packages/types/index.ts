@@ -64,3 +64,8 @@ export const generateInput = z.object({
 export type NotionContextType = {
     prisma: PrismaClient
 }
+
+export const createPageRequest = z.object({
+    database_url: z.string(),
+    api_key: z.string(),
+})
