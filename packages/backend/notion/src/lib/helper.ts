@@ -17,16 +17,20 @@ export const getDatabaseId = (databaseUrl: string) => {
 
 export const getPageId = (url: string): string => {
     // Use regular expressions to extract the ID from the URL
-    const match = url.match(/https:\/\/www\.notion\.so\/([a-zA-Z0-9-]+)\?/);
-  
-    // If a match is found, return the captured ID group (first capturing group)
+    const regex = /https:\/\/www\.notion\.so\/([^?]+)/;
+    const match = url.match(regex);
+
     if (match && match[1]) {
-      return match[1];
+        const idRegex = /[^/]+$/;
+        const idMatch = match[1].match(idRegex);
+
+        if (idMatch && idMatch[0]) {
+            return idMatch[0].split('-')[idMatch[0].split('-').length - 1];
+        }
     }
-  
     // Return null if no match is found
     return '';
-  }
+}
 
 
 
