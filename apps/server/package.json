@@ -5,7 +5,7 @@
   "license": "MIT",
   "scripts": {
     "build": "esbuild ./src/index.js --bundle --platform=node --outfile=dist/index.js",
-    "dev": "node ./dist/index.js"
+    "dev": "npx prisma generate && npx prisma db push && node ./dist/index.js" 
   },
   "dependencies": {
     "@types/axios": "^0.14.0",

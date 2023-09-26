@@ -21,8 +21,16 @@ services:
     depends_on:
       - postgres
     environment:
-      - DATABASE_URL=postgres://user:pass@postgres/whatsai
-      - POSTGRES_PASSWORD=postgres
+      - DATABASE_URL=${DATABASE_URL}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - PORT=${PORT}
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
+      - TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER}
+      - BASEURL=${BASEURL}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - NOTION_API_KEY=${NOTION_API_KEY}
+      
 
 volumes:
   data:
