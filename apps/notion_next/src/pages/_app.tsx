@@ -1,6 +1,29 @@
-import '@/styles/globals.css'
-import type { AppProps } from 'next/app'
+// pages/_app.tsx
+import { AppProps } from 'next/app';
+import '../styles/globals.css'; // Import your global CSS styles here
 
-export default function App({ Component, pageProps }: AppProps) {
-  return <Component {...pageProps} />
+function MyApp({ Component, pageProps }: AppProps) {
+  // You can add global context providers or layout components here
+
+  return (
+    <>
+      {/* Common layout elements (e.g., header, footer) */}
+      {/* You can place them here or in individual pages */}
+      <header>
+        <nav>
+          {/* Navigation links */}
+        </nav>
+      </header>
+
+      {/* Render the page component */}
+      <Component {...pageProps} />
+
+      {/* Footer */}
+      <footer>
+        {/* Footer content */}
+      </footer>
+    </>
+  );
 }
+
+export default MyApp;
