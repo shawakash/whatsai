@@ -5,6 +5,7 @@ import { createPageRequest } from 'types';
 import dotenv from "dotenv";
 import { getDatabaseId } from "./lib/helper";
 import bodyParser from 'body-parser';
+import dbRouter from './routes/database';
 dotenv.config();
 
 const {
@@ -18,6 +19,8 @@ app.use(bodyParser.urlencoded({
 }));
 app.use(bodyParser.json());
 
+app.use('/db', dbRouter);
+
 app.post('/createPage', async (req, res) => {
     const parsedRequest = createPageRequest.safeParse(req.body);
     if(!parsedRequest.success) {
@@ -29,7 +32,6 @@ app.post('/createPage', async (req, res) => {
     // console.log(database_url)
     
     const notion = new Client({ auth: api_key });
-
     const response = await notion.pages.create({
         "cover": {
             "type": "external",
