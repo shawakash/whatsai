@@ -6,12 +6,10 @@ FROM node:20.6.1-alpine
 
 
 WORKDIR /usr/src/app
-# COPY packages*.json ./
-# COPY tsconfig.json ./
-# COPY packages/database/prisma/schema.prisma ./prisma/
 
+RUN npm install turbo --global
 COPY . .
-RUN yarn install
+RUN yarn
 
 RUN turbo run build
 
