@@ -37,6 +37,7 @@ router.post('/createDb', async (req, res) => {
 
         const notion = new Client({ auth: api_key });
         let page_id = getPageId(page_url);
+        console.log(page_id, 'fro here')
         if(getPageId(page_url) == '') {
             page_id = uuid;
         }
@@ -44,7 +45,7 @@ router.post('/createDb', async (req, res) => {
         const response = await notion.databases.create({
             parent: {
                 type: "page_id",
-                page_id: page_id,
+                page_id,
               },
             icon: {
                 type: "emoji",
@@ -100,13 +101,6 @@ router.post('/createDb', async (req, res) => {
                 },
                 "Last ordered": {
                     date: {},
-                },
-                "Number of meals": {
-                    rollup: {
-                        rollup_property_name: "Name",
-                        relation_property_name: "Meals",
-                        function: "count",
-                    },
                 },
                 "Store availability": {
                     type: "multi_select",
